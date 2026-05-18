@@ -11,13 +11,17 @@
         input { padding: 10px; font-size: 16px; width: 60%; margin-right: 10px; }
         button { padding: 10px 20px; font-size: 16px; background-color: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; }
         #svart-tavla { margin-top: 20px; font-size: 1.2em; line-height: 1.6; }
-        /* Har tagit bort border-bottom och ändrat till inline-block för snyggare flyt */
         .ny-text { margin-right: 4px; }
+        
+        /* Lite design för översättningsmenyn */
+        #google_translate_element { margin-bottom: 20px; padding: 10px; background: #f9f9f9; border-radius: 8px; }
     </style>
 </head>
 <body>
 
     <h1>Elevvy 🎧</h1>
+
+    <div id="google_translate_element"></div>
     
     <div class="box" id="anslutningsbox">
         <p>Skriv in koden du fått av din lärare:</p>
@@ -29,6 +33,16 @@
 
     <div id="svart-tavla">
         </div>
+
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'sv', // Berättar att grundsidan är på svenska
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
     <script>
         const peer = new Peer();
@@ -47,11 +61,10 @@
             });
 
             conn.on('data', function(nyskapadText) {
-                // Skapar ett span-element för att få texten på samma rad
                 const span = document.createElement('span');
                 span.className = 'ny-text';
                 
-                // Lägger till ett litet mellanslag efter varje mottagen fras
+                // Vi lägger till texten så att den kan översättas (Google läser av class="notranslate" om man vill stänga av det, men vi vill ha det på!)
                 span.innerText = nyskapadText + ' '; 
                 
                 const tavla = document.getElementById('svart-tavla');
