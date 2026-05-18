@@ -8,7 +8,12 @@
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
         .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        button { padding: 10px 20px; font-size: 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Knappar */
+        button { padding: 10px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
+        #startBtn { background-color: #4CAF50; }
+        #stoppBtn { background-color: #f44336; display: none; } /* Dold från början */
+        
         #utskrift { margin-top: 20px; padding: 15px; background: #f4f4f4; min-height: 100px; border-radius: 5px; line-height: 1.6; font-size: 1.1em; }
     </style>
 </head>
@@ -21,7 +26,8 @@
         <p>Antal anslutna elever: <span id="antal-elever">0</span></p>
     </div>
 
-    <button id="startBtn" onclick="startaMicken()">Starta mikrofonen</button>
+    <button id="startBtn" onclick="startaMicken()">▶ Starta mikrofonen</button>
+    <button id="stoppBtn" onclick="stoppaMicken()">⏹ Stoppa mikrofonen</button>
     
     <div id="utskrift">
         </div>
@@ -29,6 +35,9 @@
     <script>
         const peer = new Peer();
         let anslutnaElever = [];
+        
+        // Vår nya vaktmästare-variabel
+        let avsiktligtStoppad = true; 
 
         peer.on('open', function(id) {
             document.getElementById('rumskod').innerText = id;
@@ -53,15 +62,21 @@
             }
             
             if (nyskapadText.trim() !== '') {
-                // Skapa en span istället för p, och lägg till ett mellanslag på slutet
                 const span = document.createElement('span');
                 span.innerText = nyskapadText + ' ';
                 document.getElementById('utskrift').appendChild(span);
 
-                // Skicka texten till alla anslutna elever
                 anslutnaElever.forEach(conn => {
                     conn.send(nyskapadText);
                 });
+            }
+        };
+
+        // Här är magin som väcker mikrofonen om Chrome snålar!
+        recognition.onend = function() {
+            if (!avsiktligtStoppad) {
+                // Om vi INTE tryckte på stopp, starta micken igen direkt
+                recognition.start();
             }
         };
 
@@ -69,13 +84,29 @@
             console.error("Mikrofon-fel:", event.error);
         };
 
+        // Funktion för att starta
         function startaMicken() {
-            recognition.start();
-            document.getElementById('startBtn').innerText = "Lyssnar...";
-            document.getElementById('startBtn').style.backgroundColor = "#d32f2f";
+            avsiktligtStoppad = false; // Berätta för systemet att vi vill köra
+            try {
+                recognition.start();
+            } catch(e) {} // Förhindrar krasch om den redan lyssnade
             
-            // Rensar textrutan när man startar om
+            // Byt vilka knappar som syns
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stoppBtn').style.display = 'inline-block';
+            
+            // Rensa textrutan för en ny lektion (valfritt)
             document.getElementById('utskrift').innerHTML = ''; 
+        }
+
+        // Funktion för att stoppa
+        function stoppaMicken() {
+            avsiktligtStoppad = true; // Berätta att vi faktiskt vill stänga av
+            recognition.stop();
+            
+            // Byt tillbaka knapparna
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stoppBtn').style.display = 'none';
         }
     </script>
 
