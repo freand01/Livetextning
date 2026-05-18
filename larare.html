@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lärare - Tal till text</title>
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        button { padding: 10px 20px; font-size: 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #utskrift { margin-top: 20px; padding: 10px; background: #f4f4f4; min-height: 100px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>Lärarvy 🎤</h1>
+    
+    <div class="box">
+        <p><strong>Ge denna rumskod till eleverna:</strong> <span id="rumskod" style="font-size: 1.5em; font-weight: bold; color: #d32f2f;">Laddar...</span></p>
+        <p>Antal anslutna elever: <span id="antal-elever">0</span></p>
+    </div>
+
+    <button id="startBtn" onclick="startaMicken()">Starta mikrofonen</button>
+    
+    <div id="utskrift">
+        <em>Din text kommer att dyka upp här...</em>
+    </div>
+
+    <script>
+        // --- 1. Sätt upp anslutningen (PeerJS) ---
+        const peer = new Peer();
+        let anslutnaElever = [];
+
+        peer.on('open', function(id) {
+            document.getElementById('rumskod').innerText = id;
+        });
+
+        peer.on('connection', function(conn) {
+            anslutnaElever.push(conn);
+            document.getElementById('antal-elever').innerText = anslutnaElever.length;
+        });
+
+        // --- 2. Sätt upp röstigenkänningen (Chrome Web Speech API) ---
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'sv-SE'; // Svenska
+        recognition.continuous = true; // Fortsätt lyssna hela tiden
+        recognition.interimResults = false; // Skicka bara färdiga meningar
+
+        recognition.onresult = function(event) {
+            let nyskapadText = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    nyskapadText += event.results[i][0].transcript + ' ';
+                }
+            }
+            
+            if (nyskapadText.trim() !== '') {
+                // Lägg till texten på lärarens skärm
+                const p = document.createElement('p');
+                p.innerText = nyskapadText;
+                document.getElementById('utskrift').appendChild(p);
+
+                // Skicka texten till alla anslutna elever
+                anslutnaElever.forEach(conn => {
+                    conn.send(nyskapadText);
+                });
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error("Mikrofon-fel:", event.error);
+        };
+
+        function startaMicken() {
+            recognition.start();
+            document.getElementById('startBtn').innerText = "Lyssnar...";
+            document.getElementById('startBtn').style.backgroundColor = "#d32f2f";
+        }
+    </script>
+
+</body>
+</html>

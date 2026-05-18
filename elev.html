@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elev - Liveöversättning</title>
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        .box { border: 2px solid #2196F3; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        input { padding: 10px; font-size: 16px; width: 60%; margin-right: 10px; }
+        button { padding: 10px 20px; font-size: 16px; background-color: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #svart-tavla { margin-top: 20px; font-size: 1.2em; line-height: 1.5; }
+        .ny-text { padding: 5px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+    <h1>Elevvy 🎧</h1>
+    
+    <div class="box" id="anslutningsbox">
+        <p>Skriv in koden du fått av din lärare:</p>
+        <input type="text" id="lararKod" placeholder="T.ex. abc-123-def">
+        <button onclick="anslutTillLarare()">Anslut</button>
+    </div>
+
+    <div id="status" style="color: green; font-weight: bold; margin-bottom: 20px;"></div>
+
+    <div id="svart-tavla">
+        </div>
+
+    <script>
+        const peer = new Peer();
+
+        function anslutTillLarare() {
+            const kod = document.getElementById('lararKod').value.trim();
+            if (!kod) return alert("Du måste skriva in en kod!");
+
+            document.getElementById('status').innerText = "Ansluter...";
+
+            // Koppla upp mot lärarens ID
+            const conn = peer.connect(kod);
+
+            conn.on('open', function() {
+                document.getElementById('status').innerText = "Du är ansluten! Väntar på att läraren ska prata...";
+                document.getElementById('anslutningsbox').style.display = 'none'; // Göm anslutningsrutan
+            });
+
+            // När vi tar emot text från läraren
+            conn.on('data', function(nyskapadText) {
+                const div = document.createElement('div');
+                div.className = 'ny-text';
+                div.innerText = nyskapadText;
+                
+                const tavla = document.getElementById('svart-tavla');
+                tavla.appendChild(div);
+                
+                // Scrolla ner automatiskt
+                window.scrollTo(0, document.body.scrollHeight);
+            });
+            
+            conn.on('error', function(err) {
+                alert("Kunde inte ansluta: " + err);
+            });
+        }
+    </script>
+
+</body>
+</html>
