@@ -9,7 +9,7 @@
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
         .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
         button { padding: 10px 20px; font-size: 16px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        #utskrift { margin-top: 20px; padding: 10px; background: #f4f4f4; min-height: 100px; border-radius: 5px; }
+        #utskrift { margin-top: 20px; padding: 15px; background: #f4f4f4; min-height: 100px; border-radius: 5px; line-height: 1.6; font-size: 1.1em; }
     </style>
 </head>
 <body>
@@ -24,11 +24,9 @@
     <button id="startBtn" onclick="startaMicken()">Starta mikrofonen</button>
     
     <div id="utskrift">
-        <em>Din text kommer att dyka upp här...</em>
-    </div>
+        </div>
 
     <script>
-        // --- 1. Sätt upp anslutningen (PeerJS) ---
         const peer = new Peer();
         let anslutnaElever = [];
 
@@ -41,11 +39,10 @@
             document.getElementById('antal-elever').innerText = anslutnaElever.length;
         });
 
-        // --- 2. Sätt upp röstigenkänningen (Chrome Web Speech API) ---
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'sv-SE'; // Svenska
-        recognition.continuous = true; // Fortsätt lyssna hela tiden
-        recognition.interimResults = false; // Skicka bara färdiga meningar
+        recognition.lang = 'sv-SE';
+        recognition.continuous = true;
+        recognition.interimResults = false;
 
         recognition.onresult = function(event) {
             let nyskapadText = '';
@@ -56,10 +53,10 @@
             }
             
             if (nyskapadText.trim() !== '') {
-                // Lägg till texten på lärarens skärm
-                const p = document.createElement('p');
-                p.innerText = nyskapadText;
-                document.getElementById('utskrift').appendChild(p);
+                // Skapa en span istället för p, och lägg till ett mellanslag på slutet
+                const span = document.createElement('span');
+                span.innerText = nyskapadText + ' ';
+                document.getElementById('utskrift').appendChild(span);
 
                 // Skicka texten till alla anslutna elever
                 anslutnaElever.forEach(conn => {
@@ -76,6 +73,9 @@
             recognition.start();
             document.getElementById('startBtn').innerText = "Lyssnar...";
             document.getElementById('startBtn').style.backgroundColor = "#d32f2f";
+            
+            // Rensar textrutan när man startar om
+            document.getElementById('utskrift').innerHTML = ''; 
         }
     </script>
 
