@@ -7,52 +7,97 @@
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
-        .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; background-color: #f9fff9; }
         
-        /* Knappar */
+        /* Knappar och fält */
+        input { padding: 10px; font-size: 16px; width: 60%; margin-right: 10px; margin-bottom: 10px; }
         button { padding: 10px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
+        
+        .btn-skapa { background-color: #2196F3; }
         #startBtn { background-color: #4CAF50; }
-        #stoppBtn { background-color: #f44336; display: none; } /* Dold från början */
+        #stoppBtn { background-color: #f44336; display: none; } 
         
         #utskrift { margin-top: 20px; padding: 15px; background: #f4f4f4; min-height: 100px; border-radius: 5px; line-height: 1.6; font-size: 1.1em; }
+        
+        /* För att gömma sektioner */
+        .gömd { display: none; }
     </style>
 </head>
 <body>
 
     <h1>Lärarvy 🎤</h1>
     
-    <div class="box">
-        <p><strong>Ge denna rumskod till eleverna:</strong> <span id="rumskod" style="font-size: 1.5em; font-weight: bold; color: #d32f2f;">Laddar...</span></p>
-        <p>Antal anslutna elever: <span id="antal-elever">0</span></p>
+    <div id="steg1-skapa" class="box" style="border-color: #2196F3; background-color: #f0f8ff;">
+        <p><strong>1. Hitta på en egen rumskod (t.ex. matte7b):</strong></p>
+        <input type="text" id="onskadKod" placeholder="Skriv din kod här...">
+        <button class="btn-skapa" onclick="skapaRum()">Skapa rum</button>
+        <p id="felmeddelande" style="color: red; font-weight: bold;"></p>
     </div>
-
-    <button id="startBtn" onclick="startaMicken()">▶ Starta mikrofonen</button>
-    <button id="stoppBtn" onclick="stoppaMicken()">⏹ Stoppa mikrofonen</button>
     
-    <div id="utskrift">
+    <div id="steg2-igang" class="gömd">
+        <div class="box">
+            <p><strong>Ge denna rumskod till eleverna:</strong> <span id="rumskod" style="font-size: 1.5em; font-weight: bold; color: #d32f2f;"></span></p>
+            <p>Antal anslutna elever: <span id="antal-elever">0</span></p>
         </div>
 
-    <script>
-        const peer = new Peer();
-        let anslutnaElever = [];
+        <button id="startBtn" onclick="startaMicken()">▶ Starta mikrofonen</button>
+        <button id="stoppBtn" onclick="stoppaMicken()">⏹ Stoppa mikrofonen</button>
         
-        // Vår nya vaktmästare-variabel
+        <div id="utskrift">
+            <em>När du startar mikrofonen hamnar din text här...</em>
+        </div>
+    </div>
+
+    <script>
+        let peer;
+        let anslutnaElever = [];
         let avsiktligtStoppad = true; 
-
-        peer.on('open', function(id) {
-            document.getElementById('rumskod').innerText = id;
-        });
-
-        peer.on('connection', function(conn) {
-            anslutnaElever.push(conn);
-            document.getElementById('antal-elever').innerText = anslutnaElever.length;
-        });
-
+        
+        // Röstigenkänningen görs redo
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'sv-SE';
         recognition.continuous = true;
         recognition.interimResults = false;
 
+        // --- FUNKTION: SKAPA RUMMET MED EGEN KOD ---
+        function skapaRum() {
+            let onskadKod = document.getElementById('onskadKod').value.trim().toLowerCase();
+            
+            // Om läraren glömmer skriva en kod, hitta på en 4-siffrig PIN
+            if (!onskadKod) {
+                onskadKod = Math.floor(1000 + Math.random() * 9000).toString();
+            }
+
+            document.getElementById('felmeddelande').innerText = "Skapar rum...";
+
+            // Starta PeerJS med den valda koden
+            peer = new Peer(onskadKod);
+
+            // När rummet lyckas öppnas
+            peer.on('open', function(id) {
+                // Byt vy från Steg 1 till Steg 2
+                document.getElementById('steg1-skapa').classList.add('gömd');
+                document.getElementById('steg2-igang').classList.remove('gömd');
+                document.getElementById('rumskod').innerText = id;
+            });
+
+            // Om koden redan är upptagen eller något annat går fel
+            peer.on('error', function(err) {
+                if (err.type === 'unavailable-id') {
+                    document.getElementById('felmeddelande').innerText = "Koden '" + onskadKod + "' används redan av någon annan. Hitta på en ny!";
+                } else {
+                    document.getElementById('felmeddelande').innerText = "Ett nätverksfel uppstod: " + err.type;
+                }
+            });
+
+            // När en elev ansluter
+            peer.on('connection', function(conn) {
+                anslutnaElever.push(conn);
+                document.getElementById('antal-elever').innerText = anslutnaElever.length;
+            });
+        }
+
+        // --- RÖSTIGENKÄNNING ---
         recognition.onresult = function(event) {
             let nyskapadText = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -64,6 +109,12 @@
             if (nyskapadText.trim() !== '') {
                 const span = document.createElement('span');
                 span.innerText = nyskapadText + ' ';
+                
+                // Om textrutan bara innehåller start-meddelandet, rensa det först
+                if (document.getElementById('utskrift').innerHTML.includes('<em>')) {
+                    document.getElementById('utskrift').innerHTML = '';
+                }
+                
                 document.getElementById('utskrift').appendChild(span);
 
                 anslutnaElever.forEach(conn => {
@@ -72,10 +123,8 @@
             }
         };
 
-        // Här är magin som väcker mikrofonen om Chrome snålar!
         recognition.onend = function() {
             if (!avsiktligtStoppad) {
-                // Om vi INTE tryckte på stopp, starta micken igen direkt
                 recognition.start();
             }
         };
@@ -84,27 +133,19 @@
             console.error("Mikrofon-fel:", event.error);
         };
 
-        // Funktion för att starta
+        // --- KNAPPAR FÖR MIKROFON ---
         function startaMicken() {
-            avsiktligtStoppad = false; // Berätta för systemet att vi vill köra
-            try {
-                recognition.start();
-            } catch(e) {} // Förhindrar krasch om den redan lyssnade
+            avsiktligtStoppad = false; 
+            try { recognition.start(); } catch(e) {} 
             
-            // Byt vilka knappar som syns
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('stoppBtn').style.display = 'inline-block';
-            
-            // Rensa textrutan för en ny lektion (valfritt)
-            document.getElementById('utskrift').innerHTML = ''; 
         }
 
-        // Funktion för att stoppa
         function stoppaMicken() {
-            avsiktligtStoppad = true; // Berätta att vi faktiskt vill stänga av
+            avsiktligtStoppad = true; 
             recognition.stop();
             
-            // Byt tillbaka knapparna
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('stoppBtn').style.display = 'none';
         }
