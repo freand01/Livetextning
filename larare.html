@@ -9,7 +9,7 @@
         .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; background-color: #f9fff9; }
         input { padding: 10px; font-size: 16px; width: 60%; margin-right: 10px; margin-bottom: 10px; }
         button { padding: 10px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
-        .btn-skapa { background-color: #2196F3; }
+        #skapaBtn { background-color: #2196F3; }
         #startBtn { background-color: #4CAF50; }
         #stoppBtn { background-color: #f44336; display: none; } 
         #utskrift { margin-top: 20px; padding: 15px; background: #f4f4f4; min-height: 100px; border-radius: 5px; line-height: 1.6; font-size: 1.1em; }
@@ -23,18 +23,18 @@
     <div id="steg1-skapa" class="box" style="border-color: #2196F3; background-color: #f0f8ff;">
         <p><strong>1. Hitta på en egen rumskod (t.ex. matte7b):</strong></p>
         <input type="text" id="onskadKod" placeholder="Skriv din kod här...">
-        <button class="btn-skapa" onclick="skapaRum()">Skapa rum</button>
+        <button id="skapaBtn">Skapa rum</button>
         <p id="felmeddelande" style="color: red; font-weight: bold;"></p>
     </div>
     
     <div id="steg2-igang" class="gömd">
         <div class="box">
             <p><strong>Ge denna rumskod till eleverna:</strong> <span id="rumskod" style="font-size: 1.5em; font-weight: bold; color: #d32f2f;"></span></p>
-            <p style="font-size: 0.9em; color: #666;">(När du stänger denna flik raderas all text automatiskt från databasen)</p>
+            <p style="font-size: 0.9em; color: #666;">(När du stänger denna flik raderas all text automatiskt)</p>
         </div>
 
-        <button id="startBtn" onclick="startaMicken()">▶ Starta mikrofonen</button>
-        <button id="stoppBtn" onclick="stoppaMicken()">⏹ Stoppa mikrofonen</button>
+        <button id="startBtn">▶ Starta mikrofonen</button>
+        <button id="stoppBtn">⏹ Stoppa mikrofonen</button>
         
         <div id="utskrift">
             <em>När du startar mikrofonen hamnar din text här...</em>
@@ -43,78 +43,95 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        // Vi hämtar in onDisconnect för "död mans grepp"
         import { getDatabase, ref, push, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
         // *** KLISTRA IN DIN KOPIERADE LÄNK HÄR MELLAN CITATTECKNEN ***
         const firebaseConfig = {
-            databaseURL: "https://console.firebase.google.com/u/0/project/livetextning-43edb/database/livetextning-43edb-default-rtdb/data/~2F"
+            databaseURL: "KLISTRA_IN_DIN_LÄNK_HÄR"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getDatabase(app);
 
-        let aktivtRum = "";
-        let avsiktligtStoppad = true; 
-        
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'sv-SE';
-        recognition.continuous = true;
-        recognition.interimResults = false;
-
-        window.skapaRum = function() {
-            aktivtRum = document.getElementById('onskadKod').value.trim().toLowerCase();
-            if (!aktivtRum) aktivtRum = Math.floor(1000 + Math.random() * 9000).toString();
+            let aktivtRum = "";
+            let avsiktligtStoppad = true; 
             
-            document.getElementById('felmeddelande').innerText = "Öppnar rum...";
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'sv-SE';
+            recognition.continuous = true;
+            recognition.interimResults = false;
 
-            const rumRef = ref(db, 'rum/' + aktivtRum);
-
-            // 1. Tömmer gammal text. 
-            // 2. Sätter upp onDisconnect (självförstörelsen) ifall datorn stängs!
-            remove(rumRef).then(() => {
-                onDisconnect(rumRef).remove(); // MAGIN: Om internet bryts, radera rummet!
+            // Felsäker koppling av knappen "Skapa rum"
+            document.getElementById('skapaBtn').addEventListener('click', function() {
+                aktivtRum = document.getElementById('onskadKod').value.trim().toLowerCase();
+                if (!aktivtRum) aktivtRum = Math.floor(1000 + Math.random() * 9000).toString();
                 
-                document.getElementById('steg1-skapa').classList.add('gömd');
-                document.getElementById('steg2-igang').classList.remove('gömd');
-                document.getElementById('rumskod').innerText = aktivtRum;
+                document.getElementById('felmeddelande').innerText = "Kopplar till databasen...";
+
+                const rumRef = ref(db, 'rum/' + aktivtRum);
+
+                // Försöker rensa rummet. Om det misslyckas visas felmeddelande direkt på skärmen!
+                remove(rumRef).then(() => {
+                    onDisconnect(rumRef).remove(); // Självförstörelse aktiverad
+                    
+                    document.getElementById('steg1-skapa').classList.add('gömd');
+                    document.getElementById('steg2-igang').classList.remove('gömd');
+                    document.getElementById('rumskod').innerText = aktivtRum;
+                }).catch((error) => {
+                    console.error(error);
+                    document.getElementById('felmeddelande').innerText = "Kunde inte ansluta till databasen. Kontrollera att länken är rätt inklistrad. Fel: " + error.message;
+                });
             });
-        }
 
-        recognition.onresult = function(event) {
-            let nyskapadText = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) nyskapadText += event.results[i][0].transcript + ' ';
-            }
-            
-            if (nyskapadText.trim() !== '') {
-                const span = document.createElement('span');
-                span.innerText = nyskapadText + ' ';
-                if (document.getElementById('utskrift').innerHTML.includes('<em>')) {
-                    document.getElementById('utskrift').innerHTML = '';
+            // Felsäker koppling av start- och stoppknappar
+            document.getElementById('startBtn').addEventListener('click', function() {
+                avsiktligtStoppad = false; 
+                try { recognition.start(); } catch(e) {} 
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stoppBtn').style.display = 'inline-block';
+            });
+
+            document.getElementById('stoppBtn').addEventListener('click', function() {
+                avsiktligtStoppad = true; 
+                recognition.stop();
+                document.getElementById('startBtn').style.display = 'inline-block';
+                document.getElementById('stoppBtn').style.display = 'none';
+            });
+
+            // Mikrofon-hantering
+            recognition.onresult = function(event) {
+                let nyskapadText = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) nyskapadText += event.results[i][0].transcript + ' ';
                 }
-                document.getElementById('utskrift').appendChild(span);
+                
+                if (nyskapadText.trim() !== '') {
+                    const span = document.createElement('span');
+                    span.innerText = nyskapadText + ' ';
+                    if (document.getElementById('utskrift').innerHTML.includes('<em>')) {
+                        document.getElementById('utskrift').innerHTML = '';
+                    }
+                    document.getElementById('utskrift').appendChild(span);
 
-                // Skickar till postlådan
-                push(ref(db, 'rum/' + aktivtRum), { text: nyskapadText });
-            }
-        };
+                    // Skickar till databasen
+                    push(ref(db, 'rum/' + aktivtRum), { text: nyskapadText }).catch(err => {
+                        console.error("Kunde inte skicka text till databasen: ", err);
+                    });
+                }
+            };
 
-        recognition.onend = function() { if (!avsiktligtStoppad) recognition.start(); };
-        recognition.onerror = function(event) { console.error("Mikrofon-fel:", event.error); };
+            recognition.onend = function() { if (!avsiktligtStoppad) recognition.start(); };
+            
+            recognition.onerror = function(event) { 
+                console.error("Mikrofon-fel:", event.error); 
+                if(event.error === 'not-allowed') {
+                    alert("Du måste tillåta webbläsaren att använda mikrofonen!");
+                }
+            };
 
-        window.startaMicken = function() {
-            avsiktligtStoppad = false; 
-            try { recognition.start(); } catch(e) {} 
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('stoppBtn').style.display = 'inline-block';
-        }
-
-        window.stoppaMicken = function() {
-            avsiktligtStoppad = true; 
-            recognition.stop();
-            document.getElementById('startBtn').style.display = 'inline-block';
-            document.getElementById('stoppBtn').style.display = 'none';
+        } catch(kritiskFel) {
+            document.getElementById('felmeddelande').innerText = "Ett allvarligt fel uppstod i koden. Har du råkat radera ett citattecken runt databaslänken? Fel: " + kritiskFel.message;
         }
     </script>
 </body>

@@ -23,7 +23,7 @@
     <div class="box" id="anslutningsbox">
         <p>Skriv in koden du fått av din lärare:</p>
         <input type="text" id="lararKod" placeholder="t.ex. matte7b">
-        <button onclick="anslutTillLarare()">Anslut</button>
+        <button id="anslutBtn">Anslut</button>
     </div>
 
     <div id="status" style="color: green; font-weight: bold; margin-bottom: 20px;"></div>
@@ -39,45 +39,55 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        // Vi hämtar onChildAdded för att lyssna när ny text läggs till, och onValue för att veta om läraren stänger rummet
         import { getDatabase, ref, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-        // *** KLISTRA IN DIN KOPIERADE LÄNK HÄR MELLAN CITATTECKNEN ***
+        // *** KLISTRA IN EXAKT SAMMA LÄNK HÄR MELLAN CITATTECKNEN ***
         const firebaseConfig = {
-            databaseURL: "https://console.firebase.google.com/u/0/project/livetextning-43edb/database/livetextning-43edb-default-rtdb/data/~2F"
+            databaseURL: "KLISTRA_IN_DIN_LÄNK_HÄR"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getDatabase(app);
 
-        window.anslutTillLarare = function() {
-            const kod = document.getElementById('lararKod').value.trim().toLowerCase();
-            if (!kod) return alert("Du måste skriva in en kod!");
+            // Felsäker koppling av knappen "Anslut"
+            document.getElementById('anslutBtn').addEventListener('click', function() {
+                const kod = document.getElementById('lararKod').value.trim().toLowerCase();
+                if (!kod) return alert("Du måste skriva in en kod!");
 
-            document.getElementById('status').innerText = "Du är ansluten! Väntar på att läraren ska prata...";
-            document.getElementById('anslutningsbox').style.display = 'none';
+                document.getElementById('status').innerText = "Du är ansluten! Väntar på att läraren ska prata...";
+                document.getElementById('status').style.color = "green";
+                document.getElementById('anslutningsbox').style.display = 'none';
 
-            const rumRef = ref(db, 'rum/' + kod);
-            
-            // Lyssna på ny text
-            onChildAdded(rumRef, (snapshot) => {
-                const data = snapshot.val();
+                const rumRef = ref(db, 'rum/' + kod);
                 
-                const span = document.createElement('span');
-                span.className = 'ny-text';
-                span.innerText = data.text + ' '; 
-                
-                document.getElementById('svart-tavla').appendChild(span);
-                window.scrollTo(0, document.body.scrollHeight);
-            });
-
-            // Lyssna ifall läraren stänger ner (och databasen självraderas)
-            onValue(rumRef, (snapshot) => {
-                if (!snapshot.exists()) {
-                    document.getElementById('status').innerText = "Lektionen har avslutats och texten är raderad.";
+                // Lyssna på ny text (Med inbyggd felhantering om databasen nekar åtkomst)
+                onChildAdded(rumRef, (snapshot) => {
+                    const data = snapshot.val();
+                    const span = document.createElement('span');
+                    span.className = 'ny-text';
+                    span.innerText = data.text + ' '; 
+                    
+                    document.getElementById('svart-tavla').appendChild(span);
+                    window.scrollTo(0, document.body.scrollHeight);
+                }, (error) => {
+                    console.error(error);
+                    document.getElementById('status').innerText = "Databasfel: Åtkomst nekad. Har läraren skapat rummet ännu?";
                     document.getElementById('status').style.color = "red";
-                }
+                });
+
+                // Lyssna ifall läraren stänger ner
+                onValue(rumRef, (snapshot) => {
+                    if (!snapshot.exists()) {
+                        document.getElementById('status').innerText = "Lektionen har avslutats och texten är raderad.";
+                        document.getElementById('status').style.color = "red";
+                    }
+                });
             });
+
+        } catch (kritiskFel) {
+            document.getElementById('status').innerText = "Ett allvarligt fel uppstod. Kolla databaslänken. Fel: " + kritiskFel.message;
+            document.getElementById('status').style.color = "red";
         }
     </script>
 </body>
