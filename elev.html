@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elev - Liveöversättning</title>
-    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
         .box { border: 2px solid #2196F3; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
@@ -33,49 +32,53 @@
 
     <script type="text/javascript">
         function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'sv'
-            }, 'google_translate_element');
+            new google.translate.TranslateElement({ pageLanguage: 'sv' }, 'google_translate_element');
         }
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-    <script>
-        // HÄR ÄR TILLÄGGET I ELEVVYN: Googles STUN-server som "kartläsare"
-        const peer = new Peer({
-            config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
-        });
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        // Vi hämtar onChildAdded för att lyssna när ny text läggs till, och onValue för att veta om läraren stänger rummet
+        import { getDatabase, ref, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-        function anslutTillLarare() {
+        // *** KLISTRA IN DIN KOPIERADE LÄNK HÄR MELLAN CITATTECKNEN ***
+        const firebaseConfig = {
+            databaseURL: "https://console.firebase.google.com/u/0/project/livetextning-43edb/database/livetextning-43edb-default-rtdb/data/~2F"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.anslutTillLarare = function() {
             const kod = document.getElementById('lararKod').value.trim().toLowerCase();
             if (!kod) return alert("Du måste skriva in en kod!");
 
-            document.getElementById('status').innerText = "Ansluter...";
+            document.getElementById('status').innerText = "Du är ansluten! Väntar på att läraren ska prata...";
+            document.getElementById('anslutningsbox').style.display = 'none';
 
-            const conn = peer.connect(kod);
-
-            conn.on('open', function() {
-                document.getElementById('status').innerText = "Du är ansluten! Väntar på att läraren ska prata...";
-                document.getElementById('anslutningsbox').style.display = 'none';
-            });
-
-            conn.on('data', function(nyskapadText) {
+            const rumRef = ref(db, 'rum/' + kod);
+            
+            // Lyssna på ny text
+            onChildAdded(rumRef, (snapshot) => {
+                const data = snapshot.val();
+                
                 const span = document.createElement('span');
                 span.className = 'ny-text';
-                span.innerText = nyskapadText + ' '; 
+                span.innerText = data.text + ' '; 
                 
-                const tavla = document.getElementById('svart-tavla');
-                tavla.appendChild(span);
-                
+                document.getElementById('svart-tavla').appendChild(span);
                 window.scrollTo(0, document.body.scrollHeight);
             });
-            
-            conn.on('error', function(err) {
-                alert("Kunde inte ansluta: " + err);
-                document.getElementById('status').innerText = "Misslyckades med att ansluta.";
+
+            // Lyssna ifall läraren stänger ner (och databasen självraderas)
+            onValue(rumRef, (snapshot) => {
+                if (!snapshot.exists()) {
+                    document.getElementById('status').innerText = "Lektionen har avslutats och texten är raderad.";
+                    document.getElementById('status').style.color = "red";
+                }
             });
         }
     </script>
-
 </body>
 </html>
