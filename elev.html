@@ -41,16 +41,16 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getDatabase, ref, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-        // *** KLISTRA IN EXAKT SAMMA LÄNK HÄR MELLAN CITATTECKNEN ***
+        // Korrekt länk för Belgien-servern:
         const firebaseConfig = {
-            databaseURL: "KLISTRA_IN_DIN_LÄNK_HÄR"
+            databaseURL: "https://livetextning-43edb-default-rtdb.europe-west1.firebasedatabase.app/"
         };
 
         try {
             const app = initializeApp(firebaseConfig);
             const db = getDatabase(app);
 
-            // Felsäker koppling av knappen "Anslut"
+            // Koppling av knappen "Anslut"
             document.getElementById('anslutBtn').addEventListener('click', function() {
                 const kod = document.getElementById('lararKod').value.trim().toLowerCase();
                 if (!kod) return alert("Du måste skriva in en kod!");
@@ -61,7 +61,7 @@
 
                 const rumRef = ref(db, 'rum/' + kod);
                 
-                // Lyssna på ny text (Med inbyggd felhantering om databasen nekar åtkomst)
+                // Lyssna på ny text
                 onChildAdded(rumRef, (snapshot) => {
                     const data = snapshot.val();
                     const span = document.createElement('span');
@@ -86,7 +86,7 @@
             });
 
         } catch (kritiskFel) {
-            document.getElementById('status').innerText = "Ett allvarligt fel uppstod. Kolla databaslänken. Fel: " + kritiskFel.message;
+            document.getElementById('status').innerText = "Ett allvarligt fel uppstod. Fel: " + kritiskFel.message;
             document.getElementById('status').style.color = "red";
         }
     </script>

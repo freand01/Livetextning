@@ -45,9 +45,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getDatabase, ref, push, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-        // *** KLISTRA IN DIN KOPIERADE LÄNK HÄR MELLAN CITATTECKNEN ***
+        // Korrekt länk för Belgien-servern:
         const firebaseConfig = {
-            databaseURL: "KLISTRA_IN_DIN_LÄNK_HÄR"
+            databaseURL: "https://livetextning-43edb-default-rtdb.europe-west1.firebasedatabase.app/"
         };
 
         try {
@@ -62,7 +62,7 @@
             recognition.continuous = true;
             recognition.interimResults = false;
 
-            // Felsäker koppling av knappen "Skapa rum"
+            // Koppling av knappen "Skapa rum"
             document.getElementById('skapaBtn').addEventListener('click', function() {
                 aktivtRum = document.getElementById('onskadKod').value.trim().toLowerCase();
                 if (!aktivtRum) aktivtRum = Math.floor(1000 + Math.random() * 9000).toString();
@@ -71,9 +71,9 @@
 
                 const rumRef = ref(db, 'rum/' + aktivtRum);
 
-                // Försöker rensa rummet. Om det misslyckas visas felmeddelande direkt på skärmen!
+                // Rensar gamla spår och aktiverar självförstörelse
                 remove(rumRef).then(() => {
-                    onDisconnect(rumRef).remove(); // Självförstörelse aktiverad
+                    onDisconnect(rumRef).remove(); 
                     
                     document.getElementById('steg1-skapa').classList.add('gömd');
                     document.getElementById('steg2-igang').classList.remove('gömd');
@@ -84,7 +84,7 @@
                 });
             });
 
-            // Felsäker koppling av start- och stoppknappar
+            // Koppling av start- och stoppknappar
             document.getElementById('startBtn').addEventListener('click', function() {
                 avsiktligtStoppad = false; 
                 try { recognition.start(); } catch(e) {} 
@@ -131,7 +131,7 @@
             };
 
         } catch(kritiskFel) {
-            document.getElementById('felmeddelande').innerText = "Ett allvarligt fel uppstod i koden. Har du råkat radera ett citattecken runt databaslänken? Fel: " + kritiskFel.message;
+            document.getElementById('felmeddelande').innerText = "Ett allvarligt fel uppstod i koden. Fel: " + kritiskFel.message;
         }
     </script>
 </body>
