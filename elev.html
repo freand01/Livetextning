@@ -41,6 +41,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getDatabase, ref, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+        // Korrekt länk för Belgien-servern:
         const firebaseConfig = {
             databaseURL: "https://livetextning-43edb-default-rtdb.europe-west1.firebasedatabase.app/"
         };
@@ -49,9 +50,10 @@
             const app = initializeApp(firebaseConfig);
             const db = getDatabase(app);
             
-            // NYTT: En liten vakt som håller koll på om lektionen faktiskt har startat
+            // En liten vakt som håller koll på om lektionen faktiskt har startat
             let lektionHarBorjat = false;
 
+            // Fäster funktionen på window så HTML-knappen hittar den
             window.anslutTillLarare = function() {
                 const kod = document.getElementById('lararKod').value.trim().toLowerCase();
                 
@@ -68,7 +70,7 @@
                 
                 // Lyssna på ny text
                 onChildAdded(rumRef, (snapshot) => {
-                    lektionHarBorjat = true; // Så fort första ordet trillar in vet vi att vi är igång!
+                    lektionHarBorjat = true; // Nu vet vi att lektionen är igång!
                     
                     const data = snapshot.val();
                     const span = document.createElement('span');
@@ -79,16 +81,16 @@
                     window.scrollTo(0, document.body.scrollHeight);
                 }, (error) => {
                     console.error(error);
-                    document.getElementById('status').innerText = "Databasfel: Åtkomst nekad.";
+                    document.getElementById('status').innerText = "Databasfel: Åtkomst nekad. Har läraren skapat rummet ännu?";
                     document.getElementById('status').style.color = "red";
                 });
 
-                // Lyssna ifall läraren stänger ner
+                // Lyssna ifall läraren stänger ner (och raderar databasen)
                 onValue(rumRef, (snapshot) => {
-                    // Visa BARA den röda texten om lektionen var igång men databasen nu plötsligt är tom
                     if (lektionHarBorjat && !snapshot.exists()) {
-                        document.getElementById('status').innerText = "Lektionen har avslutats och texten är raderad.";
-                        document.getElementById('status').style.color = "red";
+                        // Den nya logiska texten när läraren stänger fliken
+                        document.getElementById('status').innerText = "Lektionen har avslutats. Texten är raderad från molnet, men ligger kvar på din skärm så att du kan läsa klart. Allt försvinner när du stänger denna flik.";
+                        document.getElementById('status').style.color = "#d32f2f"; 
                     }
                 });
             };
