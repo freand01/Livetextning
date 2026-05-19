@@ -3,19 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lärare - Tal till text</title>
-    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
+    <title>Lärare - Tal till text (Säker Databas)</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
         .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; background-color: #f9fff9; }
-        
         input { padding: 10px; font-size: 16px; width: 60%; margin-right: 10px; margin-bottom: 10px; }
         button { padding: 10px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
-        
         .btn-skapa { background-color: #2196F3; }
         #startBtn { background-color: #4CAF50; }
         #stoppBtn { background-color: #f44336; display: none; } 
-        
         #utskrift { margin-top: 20px; padding: 15px; background: #f4f4f4; min-height: 100px; border-radius: 5px; line-height: 1.6; font-size: 1.1em; }
         .gömd { display: none; }
     </style>
@@ -34,7 +30,7 @@
     <div id="steg2-igang" class="gömd">
         <div class="box">
             <p><strong>Ge denna rumskod till eleverna:</strong> <span id="rumskod" style="font-size: 1.5em; font-weight: bold; color: #d32f2f;"></span></p>
-            <p>Antal anslutna elever: <span id="antal-elever">0</span></p>
+            <p style="font-size: 0.9em; color: #666;">(När du stänger denna flik raderas all text automatiskt från databasen)</p>
         </div>
 
         <button id="startBtn" onclick="startaMicken()">▶ Starta mikrofonen</button>
@@ -45,9 +41,20 @@
         </div>
     </div>
 
-    <script>
-        let peer;
-        let anslutnaElever = [];
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        // Vi hämtar in onDisconnect för "död mans grepp"
+        import { getDatabase, ref, push, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+        // *** KLISTRA IN DIN KOPIERADE LÄNK HÄR MELLAN CITATTECKNEN ***
+        const firebaseConfig = {
+            databaseURL: "https://console.firebase.google.com/u/0/project/livetextning-43edb/database/livetextning-43edb-default-rtdb/data/~2F"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let aktivtRum = "";
         let avsiktligtStoppad = true; 
         
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -55,90 +62,60 @@
         recognition.continuous = true;
         recognition.interimResults = false;
 
-        function skapaRum() {
-            let onskadKod = document.getElementById('onskadKod').value.trim().toLowerCase();
+        window.skapaRum = function() {
+            aktivtRum = document.getElementById('onskadKod').value.trim().toLowerCase();
+            if (!aktivtRum) aktivtRum = Math.floor(1000 + Math.random() * 9000).toString();
             
-            if (!onskadKod) {
-                onskadKod = Math.floor(1000 + Math.random() * 9000).toString();
-            }
+            document.getElementById('felmeddelande').innerText = "Öppnar rum...";
 
-            document.getElementById('felmeddelande').innerText = "Skapar rum...";
+            const rumRef = ref(db, 'rum/' + aktivtRum);
 
-            // HÄR ÄR TILLÄGGET: Googles STUN-server som "kartläsare"
-            peer = new Peer(onskadKod, {
-                config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
-            });
-
-            peer.on('open', function(id) {
+            // 1. Tömmer gammal text. 
+            // 2. Sätter upp onDisconnect (självförstörelsen) ifall datorn stängs!
+            remove(rumRef).then(() => {
+                onDisconnect(rumRef).remove(); // MAGIN: Om internet bryts, radera rummet!
+                
                 document.getElementById('steg1-skapa').classList.add('gömd');
                 document.getElementById('steg2-igang').classList.remove('gömd');
-                document.getElementById('rumskod').innerText = id;
-            });
-
-            peer.on('error', function(err) {
-                if (err.type === 'unavailable-id') {
-                    document.getElementById('felmeddelande').innerText = "Koden används redan. Hitta på en ny!";
-                } else {
-                    document.getElementById('felmeddelande').innerText = "Nätverksfel: " + err.type;
-                }
-            });
-
-            peer.on('connection', function(conn) {
-                anslutnaElever.push(conn);
-                document.getElementById('antal-elever').innerText = anslutnaElever.length;
+                document.getElementById('rumskod').innerText = aktivtRum;
             });
         }
 
         recognition.onresult = function(event) {
             let nyskapadText = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    nyskapadText += event.results[i][0].transcript + ' ';
-                }
+                if (event.results[i].isFinal) nyskapadText += event.results[i][0].transcript + ' ';
             }
             
             if (nyskapadText.trim() !== '') {
                 const span = document.createElement('span');
                 span.innerText = nyskapadText + ' ';
-                
                 if (document.getElementById('utskrift').innerHTML.includes('<em>')) {
                     document.getElementById('utskrift').innerHTML = '';
                 }
-                
                 document.getElementById('utskrift').appendChild(span);
 
-                anslutnaElever.forEach(conn => {
-                    conn.send(nyskapadText);
-                });
+                // Skickar till postlådan
+                push(ref(db, 'rum/' + aktivtRum), { text: nyskapadText });
             }
         };
 
-        recognition.onend = function() {
-            if (!avsiktligtStoppad) {
-                recognition.start();
-            }
-        };
+        recognition.onend = function() { if (!avsiktligtStoppad) recognition.start(); };
+        recognition.onerror = function(event) { console.error("Mikrofon-fel:", event.error); };
 
-        recognition.onerror = function(event) {
-            console.error("Mikrofon-fel:", event.error);
-        };
-
-        function startaMicken() {
+        window.startaMicken = function() {
             avsiktligtStoppad = false; 
             try { recognition.start(); } catch(e) {} 
-            
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('stoppBtn').style.display = 'inline-block';
         }
 
-        function stoppaMicken() {
+        window.stoppaMicken = function() {
             avsiktligtStoppad = true; 
             recognition.stop();
-            
             document.getElementById('startBtn').style.display = 'inline-block';
             document.getElementById('stoppBtn').style.display = 'none';
         }
     </script>
-
 </body>
 </html>
