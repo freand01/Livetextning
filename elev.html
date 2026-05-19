@@ -23,7 +23,7 @@
     <div class="box" id="anslutningsbox">
         <p>Skriv in koden du fått av din lärare:</p>
         <input type="text" id="lararKod" placeholder="t.ex. matte7b">
-        <button id="anslutBtn">Anslut</button>
+        <button onclick="anslutTillLarare()">Anslut</button>
     </div>
 
     <div id="status" style="color: green; font-weight: bold; margin-bottom: 20px;"></div>
@@ -41,7 +41,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getDatabase, ref, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-        // Korrekt länk för Belgien-servern:
         const firebaseConfig = {
             databaseURL: "https://livetextning-43edb-default-rtdb.europe-west1.firebasedatabase.app/"
         };
@@ -49,11 +48,17 @@
         try {
             const app = initializeApp(firebaseConfig);
             const db = getDatabase(app);
+            
+            // NYTT: En liten vakt som håller koll på om lektionen faktiskt har startat
+            let lektionHarBorjat = false;
 
-            // Koppling av knappen "Anslut"
-            document.getElementById('anslutBtn').addEventListener('click', function() {
+            window.anslutTillLarare = function() {
                 const kod = document.getElementById('lararKod').value.trim().toLowerCase();
-                if (!kod) return alert("Du måste skriva in en kod!");
+                
+                if (!kod) {
+                    alert("Du måste skriva in en kod!");
+                    return; 
+                }
 
                 document.getElementById('status').innerText = "Du är ansluten! Väntar på att läraren ska prata...";
                 document.getElementById('status').style.color = "green";
@@ -63,6 +68,8 @@
                 
                 // Lyssna på ny text
                 onChildAdded(rumRef, (snapshot) => {
+                    lektionHarBorjat = true; // Så fort första ordet trillar in vet vi att vi är igång!
+                    
                     const data = snapshot.val();
                     const span = document.createElement('span');
                     span.className = 'ny-text';
@@ -72,21 +79,22 @@
                     window.scrollTo(0, document.body.scrollHeight);
                 }, (error) => {
                     console.error(error);
-                    document.getElementById('status').innerText = "Databasfel: Åtkomst nekad. Har läraren skapat rummet ännu?";
+                    document.getElementById('status').innerText = "Databasfel: Åtkomst nekad.";
                     document.getElementById('status').style.color = "red";
                 });
 
                 // Lyssna ifall läraren stänger ner
                 onValue(rumRef, (snapshot) => {
-                    if (!snapshot.exists()) {
+                    // Visa BARA den röda texten om lektionen var igång men databasen nu plötsligt är tom
+                    if (lektionHarBorjat && !snapshot.exists()) {
                         document.getElementById('status').innerText = "Lektionen har avslutats och texten är raderad.";
                         document.getElementById('status').style.color = "red";
                     }
                 });
-            });
+            };
 
         } catch (kritiskFel) {
-            document.getElementById('status').innerText = "Ett allvarligt fel uppstod. Fel: " + kritiskFel.message;
+            document.getElementById('status').innerText = "Ett allvarligt fel uppstod vid laddning. Fel: " + kritiskFel.message;
             document.getElementById('status').style.color = "red";
         }
     </script>
