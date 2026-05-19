@@ -9,7 +9,6 @@
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
         .box { border: 2px solid #4CAF50; padding: 15px; border-radius: 8px; margin-bottom: 20px; background-color: #f9fff9; }
         
-        /* Knappar och fält */
         input { padding: 10px; font-size: 16px; width: 60%; margin-right: 10px; margin-bottom: 10px; }
         button { padding: 10px 20px; font-size: 16px; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 10px; }
         
@@ -18,8 +17,6 @@
         #stoppBtn { background-color: #f44336; display: none; } 
         
         #utskrift { margin-top: 20px; padding: 15px; background: #f4f4f4; min-height: 100px; border-radius: 5px; line-height: 1.6; font-size: 1.1em; }
-        
-        /* För att gömma sektioner */
         .gömd { display: none; }
     </style>
 </head>
@@ -53,51 +50,45 @@
         let anslutnaElever = [];
         let avsiktligtStoppad = true; 
         
-        // Röstigenkänningen görs redo
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'sv-SE';
         recognition.continuous = true;
         recognition.interimResults = false;
 
-        // --- FUNKTION: SKAPA RUMMET MED EGEN KOD ---
         function skapaRum() {
             let onskadKod = document.getElementById('onskadKod').value.trim().toLowerCase();
             
-            // Om läraren glömmer skriva en kod, hitta på en 4-siffrig PIN
             if (!onskadKod) {
                 onskadKod = Math.floor(1000 + Math.random() * 9000).toString();
             }
 
             document.getElementById('felmeddelande').innerText = "Skapar rum...";
 
-            // Starta PeerJS med den valda koden
-            peer = new Peer(onskadKod);
+            // HÄR ÄR TILLÄGGET: Googles STUN-server som "kartläsare"
+            peer = new Peer(onskadKod, {
+                config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+            });
 
-            // När rummet lyckas öppnas
             peer.on('open', function(id) {
-                // Byt vy från Steg 1 till Steg 2
                 document.getElementById('steg1-skapa').classList.add('gömd');
                 document.getElementById('steg2-igang').classList.remove('gömd');
                 document.getElementById('rumskod').innerText = id;
             });
 
-            // Om koden redan är upptagen eller något annat går fel
             peer.on('error', function(err) {
                 if (err.type === 'unavailable-id') {
-                    document.getElementById('felmeddelande').innerText = "Koden '" + onskadKod + "' används redan av någon annan. Hitta på en ny!";
+                    document.getElementById('felmeddelande').innerText = "Koden används redan. Hitta på en ny!";
                 } else {
-                    document.getElementById('felmeddelande').innerText = "Ett nätverksfel uppstod: " + err.type;
+                    document.getElementById('felmeddelande').innerText = "Nätverksfel: " + err.type;
                 }
             });
 
-            // När en elev ansluter
             peer.on('connection', function(conn) {
                 anslutnaElever.push(conn);
                 document.getElementById('antal-elever').innerText = anslutnaElever.length;
             });
         }
 
-        // --- RÖSTIGENKÄNNING ---
         recognition.onresult = function(event) {
             let nyskapadText = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -110,7 +101,6 @@
                 const span = document.createElement('span');
                 span.innerText = nyskapadText + ' ';
                 
-                // Om textrutan bara innehåller start-meddelandet, rensa det först
                 if (document.getElementById('utskrift').innerHTML.includes('<em>')) {
                     document.getElementById('utskrift').innerHTML = '';
                 }
@@ -133,7 +123,6 @@
             console.error("Mikrofon-fel:", event.error);
         };
 
-        // --- KNAPPAR FÖR MIKROFON ---
         function startaMicken() {
             avsiktligtStoppad = false; 
             try { recognition.start(); } catch(e) {} 

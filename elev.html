@@ -12,8 +12,6 @@
         button { padding: 10px 20px; font-size: 16px; background-color: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; }
         #svart-tavla { margin-top: 20px; font-size: 1.2em; line-height: 1.6; }
         .ny-text { margin-right: 4px; }
-        
-        /* Design för den nya översättningsmenyn */
         #google_translate_element { margin-bottom: 20px; padding: 10px; background: #f9f9f9; border-radius: 8px; }
     </style>
 </head>
@@ -25,14 +23,13 @@
     
     <div class="box" id="anslutningsbox">
         <p>Skriv in koden du fått av din lärare:</p>
-        <input type="text" id="lararKod" placeholder="T.ex. abc-123-def">
+        <input type="text" id="lararKod" placeholder="t.ex. matte7b">
         <button onclick="anslutTillLarare()">Anslut</button>
     </div>
 
     <div id="status" style="color: green; font-weight: bold; margin-bottom: 20px;"></div>
 
-    <div id="svart-tavla">
-        </div>
+    <div id="svart-tavla"></div>
 
     <script type="text/javascript">
         function googleTranslateElementInit() {
@@ -44,10 +41,13 @@
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
     <script>
-        const peer = new Peer();
+        // HÄR ÄR TILLÄGGET I ELEVVYN: Googles STUN-server som "kartläsare"
+        const peer = new Peer({
+            config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+        });
 
         function anslutTillLarare() {
-            const kod = document.getElementById('lararKod').value.trim();
+            const kod = document.getElementById('lararKod').value.trim().toLowerCase();
             if (!kod) return alert("Du måste skriva in en kod!");
 
             document.getElementById('status').innerText = "Ansluter...";
@@ -62,19 +62,17 @@
             conn.on('data', function(nyskapadText) {
                 const span = document.createElement('span');
                 span.className = 'ny-text';
-                
-                // Lägger till texten med ett litet mellanslag efter varje fras
                 span.innerText = nyskapadText + ' '; 
                 
                 const tavla = document.getElementById('svart-tavla');
                 tavla.appendChild(span);
                 
-                // Scrolla ner automatiskt till botten av sidan
                 window.scrollTo(0, document.body.scrollHeight);
             });
             
             conn.on('error', function(err) {
                 alert("Kunde inte ansluta: " + err);
+                document.getElementById('status').innerText = "Misslyckades med att ansluta.";
             });
         }
     </script>
